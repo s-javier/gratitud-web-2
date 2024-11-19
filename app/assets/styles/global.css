@@ -1,0 +1,19 @@
+:root {
+  --o-btn-primary-text-color: white;
+  --o-btn-primary-bg-color: theme(colors.pink.500);
+  --o-btn-primary-bg-hover-color: theme(colors.pink.400);
+
+  --o-btn-cancel-border-hover-color: theme(colors.pink.400);
+
+  --o-dialog-header-bg-color: theme(colors.pink.500);
+  --o-dialog-header-btn-close-text-color: theme(colors.gray.700);
+  --o-dialog-header-btn-close-bg-color: theme(colors.pink.100);
+  --o-dialog-header-btn-close-bg-hover-color: theme(colors.pink.300);
+
+  --o-admin-menu-expanded-border-current-color: theme(colors.pink.300);
+  --o-admin-menu-item-bg-color: theme(colors.pink.50);
+
+  --o-btn-filter-text-hover-color: theme(colors.pink.400);
+
+  --o-otp-ring-active-color: theme(colors.pink.400);
+}
