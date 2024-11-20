@@ -9,6 +9,7 @@ import {
   useRouteError,
 } from '@remix-run/react'
 import { NextUIProvider } from '@nextui-org/react'
+import { Toaster } from 'sonner'
 
 import '~/assets/styles/tailwind.css'
 import '~/assets/styles/global.css'
@@ -38,6 +39,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <body>
         <NextUIProvider>
           {children}
+          <Toaster richColors closeButton expand position="top-right" />
           <ScrollRestoration />
           <Scripts />
         </NextUIProvider>

@@ -3,6 +3,8 @@
   --o-btn-primary-bg-color: theme(colors.pink.500);
   --o-btn-primary-bg-hover-color: theme(colors.pink.400);
 
+  --o-input-border-hover-color: theme(colors.pink.500);
+
   --o-btn-cancel-border-hover-color: theme(colors.pink.400);
 
   --o-dialog-header-bg-color: theme(colors.pink.500);
