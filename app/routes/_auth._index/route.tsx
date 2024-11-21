@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { useEffect, useState } from 'react'
 import type { ActionFunctionArgs, MetaFunction } from '@remix-run/node'
-import { redirect, useFetcher } from '@remix-run/react'
+import { redirect, useFetcher, useNavigate } from '@remix-run/react'
 import { Button, Input } from '@nextui-org/react'
 import * as v from 'valibot'
 import { toast } from 'sonner'
@@ -12,6 +12,7 @@ import { createTransport } from 'nodemailer'
 import { ErrorMessage, ErrorTitle, Page } from '~/enums'
 import db from '~/db'
 import { personTable, sessionTable } from '~/db/schema'
+import { useIsCodeSentStore, useLoaderOverlayStore } from '~/stores'
 import { dayjs } from '~/utils'
 
 export const meta: MetaFunction = () => {
@@ -53,7 +54,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       .from(personTable)
       .where(eq(personTable.email, email))
     if (query.length === 0) {
-      if (process.env.NODE_ENV) {
+      if (process.env.NODE_ENV === 'development') {
         console.error('Usuario no encontrado.')
       }
       errors.server = {
@@ -64,7 +65,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
     user = query[0]
   } catch (err) {
-    if (process.env.NODE_ENV) {
+    if (process.env.NODE_ENV === 'development') {
       console.error('Error en DB. Consulta de usuario.')
       console.info(err)
     }
@@ -75,7 +76,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return { errors }
   }
   if (user.isActive === false) {
-    if (process.env.NODE_ENV) {
+    if (process.env.NODE_ENV === 'development') {
       console.error('Usuario no activo.')
     }
     errors.server = {
@@ -98,7 +99,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       codeIsActive: true,
     })
   } catch (err) {
-    if (process.env.NODE_ENV) {
+    if (process.env.NODE_ENV === 'development') {
       console.error('Error en DB. Crear sesión.')
       console.info(err)
     }
@@ -141,7 +142,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         `,
     })
   } catch (err) {
-    if (process.env.NODE_ENV) {
+    if (process.env.NODE_ENV === 'development') {
       console.error('Error en enviar email.')
       console.info(err)
     }
@@ -151,15 +152,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
     return { errors }
   }
-  return redirect(Page.CODE)
+  // return redirect(Page.CODE)
+  return { isCodeSent: true }
 }
 
-export default function Index() {
+export default function AuthLoginRoute() {
   const fetcher = useFetcher<typeof action>()
+  const setLoaderOverlay = useLoaderOverlayStore((state) => state.setLoaderOverlay)
   const [errEmail, setErrEmail] = useState('')
+  const navigate = useNavigate()
+  const setIsCodeSent = useIsCodeSentStore((state) => state.setIsCodeSent)
 
   useEffect(() => {
-    if (fetcher.state !== 'submitting' && fetcher.data?.errors) {
+    setLoaderOverlay(fetcher.state !== 'idle')
+    if (fetcher.state === 'idle' && fetcher.data?.errors) {
       if (fetcher.data.errors.server) {
         toast.error(fetcher.data.errors.server.title, {
           description: fetcher.data.errors.server.message || undefined,
@@ -172,6 +178,10 @@ export default function Index() {
       toast.error('Por favor corrige el error del campo email para continuar', {
         duration: 5000,
       })
+    }
+    if (fetcher.state === 'idle' && fetcher.data?.isCodeSent) {
+      setIsCodeSent(true)
+      navigate(Page.CODE)
     }
   }, [fetcher])
 

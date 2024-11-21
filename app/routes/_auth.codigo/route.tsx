@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Form, useActionData, useNavigation } from '@remix-run/react'
+import { ActionFunctionArgs, createCookie } from '@remix-run/node'
+import { Form, Link, useActionData, useNavigate, useNavigation } from '@remix-run/react'
 import { OTPInput, REGEXP_ONLY_DIGITS, SlotProps } from 'input-otp'
 import { Button } from '@nextui-org/react'
 import * as v from 'valibot'
 import { toast } from 'sonner'
+import { and, eq, ne } from 'drizzle-orm'
 
-import { cn } from '~/utils'
-import { ActionFunctionArgs } from '@remix-run/node'
+import { ErrorMessage, ErrorTitle, Page } from '~/enums'
+import { useIsCodeSentStore, useLoaderOverlayStore } from '~/stores'
+import { cn, dayjs, tokenCookie } from '~/utils'
+import db from '~/db'
+import { sessionTable } from '~/db/schema'
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const errors: {
@@ -38,17 +43,142 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return { errors }
   }
   /* ▲ Validación de formulario */
-  return null
+  let session
+  try {
+    const query = await db
+      .select({
+        id: sessionTable.id,
+        personId: sessionTable.personId,
+        codeExpiresAt: sessionTable.codeExpiresAt,
+        codeIsActive: sessionTable.codeIsActive,
+      })
+      .from(sessionTable)
+      .where(eq(sessionTable.code, code))
+    if (query.length === 0) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Sesión no encontrada.')
+      }
+      errors.server = {
+        title: ErrorTitle.SERVER_GENERIC,
+        message: ErrorMessage.SERVER_GENERIC,
+      }
+      return { errors }
+    }
+    session = query[0]
+  } catch (err) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error en DB. Obtener sesión.')
+      console.info(err)
+    }
+    errors.server = {
+      title: ErrorTitle.SERVER_GENERIC,
+      message: ErrorMessage.SERVER_GENERIC,
+    }
+    return { errors }
+  }
+  if (session.codeIsActive === false) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Sesión ya utilizada.')
+    }
+    errors.server = {
+      title: ErrorTitle.SERVER_GENERIC,
+      message: ErrorMessage.SERVER_GENERIC,
+    }
+    return { errors }
+  }
+  if (dayjs.utc().isAfter(session.codeExpiresAt)) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Sesión expirada.')
+    }
+    errors.server = {
+      title: ErrorTitle.SERVER_GENERIC,
+      message: ErrorMessage.SERVER_GENERIC,
+    }
+    return { errors }
+  }
+  /* ↓ Desactivar código y activar sesión */
+  try {
+    await db
+      .update(sessionTable)
+      .set({ isActive: true, codeIsActive: false })
+      .where(eq(sessionTable.id, session.id))
+  } catch (err) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error en DB. Desactivar código y activar sesión.')
+      console.info(err)
+    }
+    errors.server = {
+      title: ErrorTitle.SERVER_GENERIC,
+      message: ErrorMessage.SERVER_GENERIC,
+    }
+    return { errors }
+  }
+  /* ▼ Desactivar las sesiones activas del usuario que excedan las MAX_ACTIVE_SESSIONS más nuevas */
+  let sessions
+  try {
+    sessions = await db
+      .select({ id: sessionTable.id })
+      .from(sessionTable)
+      .where(
+        and(
+          and(ne(sessionTable.id, session.id), eq(sessionTable.isActive, true)),
+          eq(sessionTable.personId, session.personId),
+        ),
+      )
+  } catch (err) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error en DB. Consulta de sesiones a desactivar.')
+      console.info(err)
+    }
+    errors.server = {
+      title: ErrorTitle.SERVER_GENERIC,
+      message: ErrorMessage.SERVER_GENERIC,
+    }
+    return { errors }
+  }
+  if (sessions.length > parseInt(process.env.MAX_ACTIVE_SESSIONS ?? '1')) {
+    try {
+      await db
+        .update(sessionTable)
+        .set({ isActive: false })
+        .where(eq(sessionTable.id, sessions[parseInt(process.env.MAX_ACTIVE_SESSIONS ?? '1')].id))
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error en DB. Desactivar la sesión activa número MAX_ACTIVE_SESSIONS + 1.')
+        console.info(err)
+      }
+      errors.server = {
+        title: ErrorTitle.SERVER_GENERIC,
+        message: ErrorMessage.SERVER_GENERIC,
+      }
+      return { errors }
+    }
+  }
+  /* ▲ Desactivar las sesiones activas del usuario que excedan las MAX_ACTIVE_SESSIONS más nuevas */
+  const cookieValue = await tokenCookie.serialize(session.id)
+  return new Response(null, {
+    status: 302 /* Redirección */,
+    headers: {
+      'Set-Cookie': cookieValue /* Configurar la cookie */,
+      Location: Page.ADMIN_WELCOME /* URL de redirección */,
+    },
+  })
 }
 
-export default function Code() {
+export default function AuthCodeRoute() {
   const navigation = useNavigation()
-  const fetcher = useActionData<typeof action>()
+  const formData = useActionData<typeof action>()
   const [timeLimit, setTimeLimit] = useState(300)
   const [code, setCode] = useState('')
   const [errCode, setErrCode] = useState('')
+  const setLoaderOverlay = useLoaderOverlayStore((state) => state.setLoaderOverlay)
+  const navigate = useNavigate()
+  const isCodeSent = useIsCodeSentStore((state) => state.isCodeSent)
 
   useEffect(() => {
+    if (isCodeSent === false) {
+      navigate(Page.LOGIN, { replace: true })
+    }
     const interval = setInterval(() => {
       setTimeLimit((prevTimeLimit) => {
         if (prevTimeLimit === 0) {
@@ -63,108 +193,110 @@ export default function Code() {
   }, [])
 
   useEffect(() => {
-    if (navigation.state !== 'submitting' && fetcher?.errors) {
-      if (fetcher.errors.server) {
-        toast.error(fetcher.errors.server.title, {
-          description: fetcher.errors.server.message || undefined,
+    setLoaderOverlay(navigation.state !== 'idle')
+  }, [navigation])
+
+  useEffect(() => {
+    if (navigation.state === 'idle' && formData?.errors) {
+      if (formData.errors.server) {
+        toast.error(formData.errors.server.title, {
+          description: formData.errors.server.message || undefined,
           duration: 5000,
         })
       }
-      if (fetcher.errors.code) {
-        setErrCode(fetcher.errors.code)
+      if (formData.errors.code) {
+        setErrCode(formData.errors.code)
       }
       // setErrServerTitle('Por favor corrige el código para ingresar')
-      toast.error(fetcher.errors.code || 'Por favor corrige el código para ingresar', {
+      toast.error(formData.errors.code || 'Por favor corrige el código para ingresar', {
         duration: 5000,
       })
     }
-  }, [fetcher])
+  }, [formData])
 
   return (
-    <>
-      <p className="mb-4">¡Gracias por iniciar sesión en Condimento!</p>
-      <p className="mb-4">No cierres ni actulices esta página.</p>
-      <p className="mb-4">
-        Se te ha enviado un email con un código para que lo ingreses más abajo.
-      </p>
-      <p className="mb-8">
-        Si el email no lo ves en tu bandeja de entrada, por favor, revisa tu carpeta de spam.
-      </p>
-      <Form method="post" className="mb-8">
-        <input name="code" type="hidden" value={code} />
-        <input name="timeLimit" type="hidden" value={timeLimit} />
-        <div className="flex justify-center mb-8">
-          <OTPInput
-            maxLength={6}
-            pattern={REGEXP_ONLY_DIGITS}
-            value={code}
-            onChange={setCode}
-            containerClassName="group flex items-center has-[:disabled]:opacity-30"
-            render={({ slots }) => (
-              <>
-                <div className="flex">
-                  {slots.slice(0, 3).map((slot, idx) => (
-                    <Slot key={idx} {...slot} />
-                  ))}
-                </div>
+    isCodeSent && (
+      <>
+        <p className="mb-4">¡Gracias por iniciar sesión en Gratitud!</p>
+        <p className="mb-4">No cierres ni actulices esta página.</p>
+        <p className="mb-4">
+          Se te ha enviado un email con un código para que lo ingreses más abajo.
+        </p>
+        <p className="mb-8">
+          Si el email no lo ves en tu bandeja de entrada, por favor, revisa tu carpeta de spam.
+        </p>
+        <Form method="post" className="mb-8">
+          <input name="code" type="hidden" value={code} />
+          <input name="timeLimit" type="hidden" value={timeLimit} />
+          <div className="flex justify-center mb-8">
+            <OTPInput
+              maxLength={6}
+              pattern={REGEXP_ONLY_DIGITS}
+              value={code}
+              onChange={setCode}
+              containerClassName="group flex items-center has-[:disabled]:opacity-30"
+              render={({ slots }) => (
+                <>
+                  <div className="flex">
+                    {slots.slice(0, 3).map((slot, idx) => (
+                      <Slot key={idx} {...slot} />
+                    ))}
+                  </div>
 
-                <FakeDash />
+                  <FakeDash />
 
-                <div className="flex">
-                  {slots.slice(3).map((slot, idx) => (
-                    <Slot key={idx} {...slot} />
-                  ))}
-                </div>
-              </>
+                  <div className="flex">
+                    {slots.slice(3).map((slot, idx) => (
+                      <Slot key={idx} {...slot} />
+                    ))}
+                  </div>
+                </>
+              )}
+            />
+          </div>
+          <div className="mb-10 mt-4">
+            {timeLimit > 0 ? (
+              <div className="text-center text-sm font-bold text-gray-400">
+                Tienes {timeLimit} segundos para ingresar el código.
+              </div>
+            ) : (
+              <div className="text-center text-sm font-bold text-red-500">
+                Oh no, se acabó el tiempo. El código expiró y no se puede volver a utilizar. Por
+                favor, presiona&nbsp;
+                <Link
+                  to={Page.LOGIN}
+                  className="cursor-pointer text-[var(--o-text-primary-color)] hover:underline"
+                >
+                  aquí
+                </Link>
+                &nbsp;para que ingreses nuevamente tu email y recibirás un nuevo código.
+              </div>
             )}
-          />
+          </div>
+          <Button
+            type="submit"
+            size="lg"
+            className={[
+              'w-full',
+              'text-[var(--o-btn-primary-text-color)]',
+              'bg-[var(--o-btn-primary-bg-color)]',
+            ].join(' ')}
+          >
+            Ingresar
+          </Button>
+        </Form>
+        <div className="line rounded-md bg-slate-200 p-4 text-sm">
+          Si el código no lo recibiste o tienes algún problema, por favor, presiona&nbsp;
+          <Link
+            to={Page.LOGIN}
+            className="cursor-pointer text-[var(--o-text-primary-color)] hover:underline font-bold"
+          >
+            aquí
+          </Link>
+          &nbsp;para que ingreses nuevamente tu email y recibirás un nuevo código.
         </div>
-        <div className="mb-10 mt-4">
-          {timeLimit > 0 ? (
-            <div className="text-center text-sm font-bold text-gray-400">
-              Tienes {timeLimit} segundos para ingresar el código.
-            </div>
-          ) : (
-            <div className="text-center text-sm font-bold text-red-500">
-              Oh no, se acabó el tiempo. El código expiró y no se puede volver a utilizar. Por
-              favor, presiona&nbsp;
-              {/* <button
-                onClick={() => {
-                  props.continue(false)
-                }}
-                className="cursor-pointer text-yellow-500 hover:underline"
-              >
-                aquí
-              </button> */}
-              &nbsp;para que ingreses nuevamente tu email y recibirás un nuevo código.
-            </div>
-          )}
-        </div>
-        <Button
-          type="submit"
-          size="lg"
-          className={[
-            'w-full',
-            'text-[var(--o-btn-primary-text-color)]',
-            'bg-[var(--o-btn-primary-bg-color)]',
-          ].join(' ')}
-        >
-          Ingresar
-        </Button>
-      </Form>
-      <div className="line rounded-md bg-slate-200 p-4 text-sm">
-        Si el código no lo recibiste o tienes algún problema, por favor, presiona&nbsp;
-        {/* <button
-          onClick={() => {
-            props.continue(false)
-          }}
-          className="cursor-pointer text-pink-400 hover:underline font-bold"
-        >
-          aquí
-        </button> */}
-        &nbsp;para que ingreses nuevamente tu email y recibirás un nuevo código.
-      </div>
-    </>
+      </>
+    )
   )
 }
 

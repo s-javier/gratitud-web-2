@@ -13,6 +13,7 @@ import { Toaster } from 'sonner'
 
 import '~/assets/styles/tailwind.css'
 import '~/assets/styles/global.css'
+import LoaderOverlay from '~/components/shared/LoaderOverlay'
 
 export const links: LinksFunction = () => [
   { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -29,17 +30,18 @@ export const links: LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="es" className="h-full">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
       </head>
-      <body>
-        <NextUIProvider>
+      <body className="h-full">
+        <NextUIProvider className="h-full">
           {children}
           <Toaster richColors closeButton expand position="top-right" />
+          <LoaderOverlay />
           <ScrollRestoration />
           <Scripts />
         </NextUIProvider>
