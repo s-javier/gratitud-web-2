@@ -9,7 +9,8 @@ import { and, eq, ne } from 'drizzle-orm'
 
 import { ErrorMessage, ErrorTitle, Page } from '~/enums'
 import { useIsCodeSentStore, useLoaderOverlayStore } from '~/stores'
-import { cn, dayjs, tokenCookie } from '~/utils'
+import { dayjs, userTokenCookie } from '~/utils'
+import { cn } from '~/utils/cn'
 import db from '~/db'
 import { sessionTable } from '~/db/schema'
 
@@ -155,7 +156,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
   }
   /* ▲ Desactivar las sesiones activas del usuario que excedan las MAX_ACTIVE_SESSIONS más nuevas */
-  const cookieValue = await tokenCookie.serialize(session.id)
+  const cookieValue = await userTokenCookie.serialize(session.id)
   return new Response(null, {
     status: 302 /* Redirección */,
     headers: {

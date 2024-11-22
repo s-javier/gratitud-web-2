@@ -1,12 +1,12 @@
 import { LoaderFunctionArgs } from '@remix-run/node'
 
-import { tokenCookie } from '~/utils'
+import { userTokenCookie } from '~/utils'
 import AdminHeader from '~/components/admin/AdminHeader'
 import AdminMain from '~/components/admin/AdminMain'
 import Notebook from '~/components/svg/Notebook'
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const token = await tokenCookie.parse(request.headers.get('Cookie'))
+  const token = await userTokenCookie.parse(request.headers.get('Cookie'))
   console.log(token)
   return null
 }

@@ -1,6 +1,6 @@
 import { createCookie } from '@remix-run/node'
 
-export const tokenCookie = createCookie('token', {
+export const userTokenCookie = createCookie('token', {
   domain:
     process.env.NODE_ENV === 'development'
       ? 'localhost'

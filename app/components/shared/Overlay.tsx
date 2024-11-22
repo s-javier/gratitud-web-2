@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { animate } from 'motion'
 
 import { cn } from '~/utils/cn'
 
 export default function Overlay(props: {
   isActive: boolean
-  children: any
+  children: ReactNode
   type: 'dialog' | 'sidebar'
   width?: string
   zIndex?: string

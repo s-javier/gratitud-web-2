@@ -1,7 +1,14 @@
+import { Link, useLocation } from '@remix-run/react'
+
+import { useUserStore } from '~/stores'
+import { cn } from '~/utils/cn'
 import Logo from '~/components/svg/Logo'
 import UserMenu from '~/components/admin/UserMenu'
 
 export default function AdminHeader(props: { title: any; buttons: any }) {
+  const location = useLocation()
+  const menu = useUserStore((state) => state.menu)
+
   return (
     <div className="bg-gray-800 pb-32">
       <nav className="bg-gray-800">
@@ -12,15 +19,15 @@ export default function AdminHeader(props: { title: any; buttons: any }) {
                 <div className="lg:hidden">
                   {/* Mobile menu button */}
                   {/* <AdminMenu
-                client:only="solid-js"
-                menu={Astro.locals.menu ?? []}
-                currentPath={Astro.url.pathname}
-                organizations={Astro.locals.organizations}
-              /> */}
+                      client:only="solid-js"
+                      menu={Astro.locals.menu ?? []}
+                      currentPath={Astro.url.pathname}
+                      organizations={Astro.locals.organizations}
+                    /> */}
                 </div>
                 <div className="hidden lg:block">
                   {
-                    // Astro.locals.menu?.length >= 6 && (
+                    // menu.length >= 6 && (
                     //   <AdminMenu
                     //     client:only="solid-js"
                     //     menu={Astro.locals.menu ?? []}
@@ -31,37 +38,35 @@ export default function AdminHeader(props: { title: any; buttons: any }) {
                   }
                 </div>
                 <a href="/admin/welcome" className="o-page ml-2">
-                  {/* <Icon name="logo" width="100%" height="100%" className="w-[160px]" /> */}
                   <Logo className="w-[160px]" />
                 </a>
                 <div className="hidden lg:block">
                   <div className="ml-10 flex items-baseline space-x-1">
-                    {
-                      // Astro.locals.menu?.length < 6 &&
-                      //   Astro.locals.menu.map((item: any) => (
-                      //     <a
-                      //       href={item.path}
-                      //       class:list={[
-                      //         'o-page',
-                      //         'relative rounded-md',
-                      //         Astro.url.pathname === item.path
-                      //           ? 'text-white bg-white/5'
-                      //           : 'text-gray-300 hover:text-white hover:bg-white/5',
-                      //       ]}
-                      //     >
-                      //       <div className="px-3 py-2">{item.title}</div>
-                      //       {Astro.url.pathname === item.path && (
-                      //         <div
-                      //           transition:name="menu-page"
-                      //           class:list={[
-                      //             'absolute left-0 top-0 w-full h-full rounded-md border-2',
-                      //             'border-[var(--o-admin-menu-expanded-border-current-color)]',
-                      //           ]}
-                      //         />
-                      //       )}
-                      //     </a>
-                      //   ))
-                    }
+                    {menu.length < 6 &&
+                      menu.map((item: any) => (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          className={cn(
+                            'o-page',
+                            'relative rounded-md',
+                            location.pathname === item.path
+                              ? 'text-white bg-white/5'
+                              : 'text-gray-300 hover:text-white hover:bg-white/5',
+                          )}
+                        >
+                          <div className="px-3 py-2">{item.title}</div>
+                          {location.pathname === item.path && (
+                            <div
+                              // transition:name="menu-page"
+                              className={cn(
+                                'absolute left-0 top-0 w-full h-full rounded-md border-2',
+                                'border-[var(--o-admin-menu-expanded-border-current-color)]',
+                              )}
+                            />
+                          )}
+                        </Link>
+                      ))}
                   </div>
                 </div>
               </div>
@@ -84,9 +89,9 @@ export default function AdminHeader(props: { title: any; buttons: any }) {
                     // )
                   }
                 </div>
-                <div className="relative ml-1">
+                <div className="flex flex-row items-center ml-1">
                   {/* <UserMenu client:only="solid-js" name={Astro.locals.user?.name ?? 'Usuario'} /> */}
-                  <UserMenu name={'Usuario'} />
+                  <UserMenu />
                 </div>
               </div>
             </div>

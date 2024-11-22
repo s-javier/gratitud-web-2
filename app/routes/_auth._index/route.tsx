@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { useEffect, useState } from 'react'
 import type { ActionFunctionArgs, MetaFunction } from '@remix-run/node'
-import { redirect, useFetcher, useNavigate } from '@remix-run/react'
+import { useFetcher, useNavigate } from '@remix-run/react'
 import { Button, Input } from '@nextui-org/react'
 import * as v from 'valibot'
 import { toast } from 'sonner'
