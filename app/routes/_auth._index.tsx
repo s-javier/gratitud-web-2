@@ -20,10 +20,6 @@ export const meta: MetaFunction = () => {
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const errors: {
-    email?: string
-    server?: { title: string; message: string }
-  } = {}
   const formData = await request.formData()
   const email = String(formData.get('email'))
   /* ▼ Validación de formulario */
@@ -37,10 +33,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     email,
   )
   if (errEmail.issues) {
-    errors.email = errEmail.issues[0].message
-  }
-  if (Object.keys(errors).length > 0) {
-    return { errors }
+    return { errors: { email: errEmail.issues[0].message } }
   }
   /* ▲ Validación de formulario */
   let user
@@ -57,11 +50,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       if (process.env.NODE_ENV === 'development') {
         console.error('Usuario no encontrado.')
       }
-      errors.server = {
-        title: ErrorTitle.SERVER_GENERIC,
-        message: ErrorMessage.SERVER_GENERIC,
+      return {
+        errors: {
+          server: {
+            title: ErrorTitle.SERVER_GENERIC,
+            message: ErrorMessage.SERVER_GENERIC,
+          },
+        },
       }
-      return { errors }
     }
     user = query[0]
   } catch (err) {
@@ -69,21 +65,27 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.error('Error en DB. Consulta de usuario.')
       console.info(err)
     }
-    errors.server = {
-      title: ErrorTitle.SERVER_GENERIC,
-      message: ErrorMessage.SERVER_GENERIC,
+    return {
+      errors: {
+        server: {
+          title: ErrorTitle.SERVER_GENERIC,
+          message: ErrorMessage.SERVER_GENERIC,
+        },
+      },
     }
-    return { errors }
   }
   if (user.isActive === false) {
     if (process.env.NODE_ENV === 'development') {
       console.error('Usuario no activo.')
     }
-    errors.server = {
-      title: ErrorTitle.SERVER_GENERIC,
-      message: ErrorMessage.SERVER_GENERIC,
+    return {
+      errors: {
+        server: {
+          title: ErrorTitle.SERVER_GENERIC,
+          message: ErrorMessage.SERVER_GENERIC,
+        },
+      },
     }
-    return { errors }
   }
   /* ▼ Crear sesión */
   const alphabet = '0123456789'
@@ -103,11 +105,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.error('Error en DB. Crear sesión.')
       console.info(err)
     }
-    errors.server = {
-      title: ErrorTitle.SERVER_GENERIC,
-      message: ErrorMessage.SERVER_GENERIC,
+    return {
+      errors: {
+        server: {
+          title: ErrorTitle.SERVER_GENERIC,
+          message: ErrorMessage.SERVER_GENERIC,
+        },
+      },
     }
-    return { errors }
   }
   /* ▲ Crear sesión */
   /* ▼ Enviar email */
@@ -146,18 +151,27 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.error('Error en enviar email.')
       console.info(err)
     }
-    errors.server = {
-      title: ErrorTitle.SERVER_GENERIC,
-      message: ErrorMessage.SERVER_GENERIC,
+    return {
+      errors: {
+        server: {
+          title: ErrorTitle.SERVER_GENERIC,
+          message: ErrorMessage.SERVER_GENERIC,
+        },
+      },
     }
-    return { errors }
   }
   // return redirect(Page.CODE)
   return { isCodeSent: true }
 }
 
 export default function AuthLoginRoute() {
-  const fetcher = useFetcher<typeof action>()
+  const fetcher = useFetcher<{
+    isCodeSent?: boolean
+    errors?: {
+      email?: string
+      server?: { title: string; message: string }
+    }
+  }>()
   const setLoaderOverlay = useLoaderOverlayStore((state) => state.setLoaderOverlay)
   const [errEmail, setErrEmail] = useState('')
   const navigate = useNavigate()

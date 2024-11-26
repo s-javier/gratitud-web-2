@@ -1,15 +1,22 @@
 import { create } from 'zustand'
-import { DataFromGetMenuFromDB, DataFromVerifyUserToken } from '~/db/queries'
 
 export const useUserStore = create<{
   id: string
   organizationId: string
   roleId: string
-  menu: DataFromGetMenuFromDB['menu']
+  menu: {
+    title: string
+    icon: string | null
+    path: string
+  }[]
   firstName: string
   setUser: (
-    value: Omit<DataFromVerifyUserToken, 'kind'> & {
-      menu: DataFromGetMenuFromDB['menu']
+    value: { userId: string; organizationId: string; roleId: string } & {
+      menu: {
+        title: string
+        icon: string | null
+        path: string
+      }[]
       firstName: string
     },
   ) => void
@@ -20,8 +27,12 @@ export const useUserStore = create<{
   menu: [],
   firstName: '',
   setUser: (
-    value: Omit<DataFromVerifyUserToken, 'kind'> & {
-      menu: DataFromGetMenuFromDB['menu']
+    value: { userId: string; organizationId: string; roleId: string } & {
+      menu: {
+        title: string
+        icon: string | null
+        path: string
+      }[]
       firstName: string
     },
   ) =>

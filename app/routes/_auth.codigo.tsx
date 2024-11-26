@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ActionFunctionArgs, createCookie } from '@remix-run/node'
+import { ActionFunctionArgs } from '@remix-run/node'
 import { Form, Link, useActionData, useNavigate, useNavigation } from '@remix-run/react'
 import { OTPInput, REGEXP_ONLY_DIGITS, SlotProps } from 'input-otp'
 import { Button } from '@nextui-org/react'
@@ -15,15 +15,9 @@ import db from '~/db'
 import { sessionTable } from '~/db/schema'
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const errors: {
-    code?: string
-    server?: { title: string; message: string }
-  } = {}
   const formData = await request.formData()
   const code = String(formData.get('code'))
   const timeLimit = Number(formData.get('timeLimit'))
-  console.log(code)
-  console.log(timeLimit)
   /* ▼ Validación de formulario */
   const errCode = v.safeParse(
     v.pipe(
@@ -38,10 +32,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     code,
   )
   if (errCode.issues) {
-    errors.code = errCode.issues[0].message
-  }
-  if (Object.keys(errors).length > 0) {
-    return { errors }
+    return {
+      errors: { code: errCode.issues[0].message },
+    }
   }
   /* ▲ Validación de formulario */
   let session
@@ -59,11 +52,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       if (process.env.NODE_ENV === 'development') {
         console.error('Sesión no encontrada.')
       }
-      errors.server = {
-        title: ErrorTitle.SERVER_GENERIC,
-        message: ErrorMessage.SERVER_GENERIC,
+      return {
+        errors: {
+          server: {
+            title: ErrorTitle.SERVER_GENERIC,
+            message: ErrorMessage.SERVER_GENERIC,
+          },
+        },
       }
-      return { errors }
     }
     session = query[0]
   } catch (err) {
@@ -71,31 +67,40 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.error('Error en DB. Obtener sesión.')
       console.info(err)
     }
-    errors.server = {
-      title: ErrorTitle.SERVER_GENERIC,
-      message: ErrorMessage.SERVER_GENERIC,
+    return {
+      errors: {
+        server: {
+          title: ErrorTitle.SERVER_GENERIC,
+          message: ErrorMessage.SERVER_GENERIC,
+        },
+      },
     }
-    return { errors }
   }
   if (session.codeIsActive === false) {
     if (process.env.NODE_ENV === 'development') {
       console.error('Sesión ya utilizada.')
     }
-    errors.server = {
-      title: ErrorTitle.SERVER_GENERIC,
-      message: ErrorMessage.SERVER_GENERIC,
+    return {
+      errors: {
+        server: {
+          title: ErrorTitle.SERVER_GENERIC,
+          message: ErrorMessage.SERVER_GENERIC,
+        },
+      },
     }
-    return { errors }
   }
   if (dayjs.utc().isAfter(session.codeExpiresAt)) {
     if (process.env.NODE_ENV === 'development') {
       console.error('Sesión expirada.')
     }
-    errors.server = {
-      title: ErrorTitle.SERVER_GENERIC,
-      message: ErrorMessage.SERVER_GENERIC,
+    return {
+      errors: {
+        server: {
+          title: ErrorTitle.SERVER_GENERIC,
+          message: ErrorMessage.SERVER_GENERIC,
+        },
+      },
     }
-    return { errors }
   }
   /* ↓ Desactivar código y activar sesión */
   try {
@@ -108,11 +113,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.error('Error en DB. Desactivar código y activar sesión.')
       console.info(err)
     }
-    errors.server = {
-      title: ErrorTitle.SERVER_GENERIC,
-      message: ErrorMessage.SERVER_GENERIC,
+    return {
+      errors: {
+        server: {
+          title: ErrorTitle.SERVER_GENERIC,
+          message: ErrorMessage.SERVER_GENERIC,
+        },
+      },
     }
-    return { errors }
   }
   /* ▼ Desactivar las sesiones activas del usuario que excedan las MAX_ACTIVE_SESSIONS más nuevas */
   let sessions
@@ -131,11 +139,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.error('Error en DB. Consulta de sesiones a desactivar.')
       console.info(err)
     }
-    errors.server = {
-      title: ErrorTitle.SERVER_GENERIC,
-      message: ErrorMessage.SERVER_GENERIC,
+    return {
+      errors: {
+        server: {
+          title: ErrorTitle.SERVER_GENERIC,
+          message: ErrorMessage.SERVER_GENERIC,
+        },
+      },
     }
-    return { errors }
   }
   if (sessions.length > parseInt(process.env.MAX_ACTIVE_SESSIONS ?? '1')) {
     try {
@@ -148,11 +159,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         console.error('Error en DB. Desactivar la sesión activa número MAX_ACTIVE_SESSIONS + 1.')
         console.info(err)
       }
-      errors.server = {
-        title: ErrorTitle.SERVER_GENERIC,
-        message: ErrorMessage.SERVER_GENERIC,
+      return {
+        errors: {
+          server: {
+            title: ErrorTitle.SERVER_GENERIC,
+            message: ErrorMessage.SERVER_GENERIC,
+          },
+        },
       }
-      return { errors }
     }
   }
   /* ▲ Desactivar las sesiones activas del usuario que excedan las MAX_ACTIVE_SESSIONS más nuevas */
@@ -168,7 +182,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function AuthCodeRoute() {
   const navigation = useNavigation()
-  const formData = useActionData<typeof action>()
+  const formData = useActionData<{
+    errors?: {
+      code?: string
+      server?: { title: string; message: string }
+    }
+  }>()
   const [timeLimit, setTimeLimit] = useState(300)
   const [code, setCode] = useState('')
   const [errCode, setErrCode] = useState('')
@@ -194,6 +213,7 @@ export default function AuthCodeRoute() {
   }, [])
 
   useEffect(() => {
+    console.log('navigation.state', navigation.state)
     setLoaderOverlay(navigation.state !== 'idle')
   }, [navigation])
 
@@ -207,11 +227,10 @@ export default function AuthCodeRoute() {
       }
       if (formData.errors.code) {
         setErrCode(formData.errors.code)
+        toast.error(formData.errors.code || 'Por favor corrige el código para ingresar', {
+          duration: 5000,
+        })
       }
-      // setErrServerTitle('Por favor corrige el código para ingresar')
-      toast.error(formData.errors.code || 'Por favor corrige el código para ingresar', {
-        duration: 5000,
-      })
     }
   }, [formData])
 

@@ -1,14 +1,15 @@
-import { LoaderFunctionArgs } from '@remix-run/node'
-
-import { userTokenCookie } from '~/utils'
+import { MetaFunction } from '@remix-run/node'
 import AdminHeader from '~/components/admin/AdminHeader'
 import AdminMain from '~/components/admin/AdminMain'
 import Notebook from '~/components/svg/Notebook'
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const token = await userTokenCookie.parse(request.headers.get('Cookie'))
-  console.log(token)
-  return null
+// export const loader = async ({ request }: LoaderFunctionArgs) => {
+//   const token = await userTokenCookie.parse(request.headers.get('Cookie'))
+//   return null
+// }
+
+export const meta: MetaFunction = () => {
+  return [{ title: 'Bienvenido/a | Gratitud' }, { name: 'description', content: '' }]
 }
 
 export default function AdminWelcomeRoute() {
@@ -16,10 +17,7 @@ export default function AdminWelcomeRoute() {
     <>
       <AdminHeader
         title={
-          <h1
-            slot="view-title"
-            className="max-w-[800px] text-3xl font-bold tracking-tight text-white"
-          >
+          <h1 className="max-w-[800px] text-3xl font-bold tracking-tight text-white">
             Bienvenido/a
           </h1>
         }

@@ -5,25 +5,20 @@ import db from '~/db'
 import { organizationPersonRoleTable, sessionTable } from '~/db/schema'
 import { dayjs } from '../../../utils/dayjs'
 
-export type ErrorFromVerifyUserToken = {
-  kind: 'error-from-verifyUserToken'
-  server: { title: string; message: string }
-}
-
-export type DataFromVerifyUserToken = {
-  kind: 'data-from-verifyUserToken'
-  userId: string
-  organizationId: string
-  roleId: string
-}
-
 export const verifyUserToken = async (
   userToken: string,
-): Promise<ErrorFromVerifyUserToken | DataFromVerifyUserToken> => {
+): Promise<{
+  serverError?: { title: string; message: string }
+  userId?: string
+  organizationId?: string
+  roleId?: string
+}> => {
   if (!userToken) {
+    if (process.env.NODE_ENV) {
+      console.error('userToken no encontrado en headers.')
+    }
     return {
-      kind: 'error-from-verifyUserToken',
-      server: {
+      serverError: {
         title: ErrorTitle.SERVER_GENERIC,
         message: ErrorMessage.SERVER_GENERIC,
       },
@@ -41,11 +36,10 @@ export const verifyUserToken = async (
       .where(eq(sessionTable.id, userToken))
     if (query.length === 0) {
       if (process.env.NODE_ENV) {
-        console.error('userToken no encontrado.')
+        console.error('userToken no encontrado en DB.')
       }
       return {
-        kind: 'error-from-verifyUserToken',
-        server: {
+        serverError: {
           title: ErrorTitle.SERVER_GENERIC,
           message: ErrorMessage.SERVER_GENERIC,
         },
@@ -58,8 +52,7 @@ export const verifyUserToken = async (
       console.log(err)
     }
     return {
-      kind: 'error-from-verifyUserToken',
-      server: {
+      serverError: {
         title: ErrorTitle.SERVER_GENERIC,
         message: ErrorMessage.SERVER_GENERIC,
       },
@@ -70,8 +63,7 @@ export const verifyUserToken = async (
       console.error('userToken no está activo.')
     }
     return {
-      kind: 'error-from-verifyUserToken',
-      server: {
+      serverError: {
         title: ErrorTitle.SERVER_GENERIC,
         message: ErrorMessage.SERVER_GENERIC,
       },
@@ -82,8 +74,7 @@ export const verifyUserToken = async (
       console.error('userToken expiró.')
     }
     return {
-      kind: 'error-from-verifyUserToken',
-      server: {
+      serverError: {
         title: ErrorTitle.SERVER_GENERIC,
         message: ErrorMessage.SERVER_GENERIC,
       },
@@ -108,8 +99,7 @@ export const verifyUserToken = async (
         console.error('El usuario no está vinculado a una organización ni a un rol.')
       }
       return {
-        kind: 'error-from-verifyUserToken',
-        server: {
+        serverError: {
           title: ErrorTitle.SERVER_GENERIC,
           message: ErrorMessage.SERVER_GENERIC,
         },
@@ -121,8 +111,7 @@ export const verifyUserToken = async (
       console.error('Error en DB. Consulta si usuario está asociado a una organización y un rol.')
     }
     return {
-      kind: 'error-from-verifyUserToken',
-      server: {
+      serverError: {
         title: ErrorTitle.SERVER_GENERIC,
         message: ErrorMessage.SERVER_GENERIC,
       },
@@ -131,7 +120,6 @@ export const verifyUserToken = async (
   // TODO: Verificar si ip e user_agent de la request coinciden con el de la session
   /* Esto asume que una persona solo puede tener un rol en una organización */
   return {
-    kind: 'data-from-verifyUserToken',
     userId: session.personId,
     organizationId: userOrgRole.organizationId,
     roleId: userOrgRole.roleId,

@@ -8,7 +8,7 @@ import { Page } from '~/enums'
 import { useUserStore } from '~/stores'
 
 export default function UserMenu() {
-  const user = useUserStore((state) => state.id)
+  const firstNameUser = useUserStore((state) => state.firstName)
 
   return (
     <Dropdown placement="bottom-end">
@@ -19,12 +19,12 @@ export default function UserMenu() {
           startContent={<Icon icon="mdi:account" width="100%" className="w-5" />}
           endContent={<Icon icon="mdi:chevron-down" width="100%" className="w-5" />}
         >
-          Usuario
+          {firstNameUser}
         </Button>
       </DropdownTrigger>
       <DropdownMenu aria-label="Static Actions">
         <DropdownItem
-          key="new"
+          key="logout"
           startContent={<Icon icon="mdi:logout" width="100%" className="w-5 text-gray-500" />}
         >
           Cerrar sesión

@@ -11,8 +11,8 @@ import {
 import { NextUIProvider } from '@nextui-org/react'
 import { Toaster } from 'sonner'
 
-import '~/assets/styles/tailwind.css'
-import '~/assets/styles/global.css'
+import tailwindHref from '~/assets/styles/tailwind.css?url'
+import globalHref from '~/assets/styles/global.css?url'
 import LoaderOverlay from '~/components/shared/LoaderOverlay'
 
 export const links: LinksFunction = () => [
@@ -26,6 +26,8 @@ export const links: LinksFunction = () => [
     rel: 'stylesheet',
     href: 'https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap',
   },
+  { rel: 'stylesheet', href: tailwindHref },
+  { rel: 'stylesheet', href: globalHref },
 ]
 
 export function Layout({ children }: { children: React.ReactNode }) {

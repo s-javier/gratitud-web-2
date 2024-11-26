@@ -7,7 +7,7 @@ import { cache } from '~/utils/cache'
 
 export type ErrorFromGetFirstNameFromDB = {
   kind: 'error-user-first-name'
-  server: { title: string; message: string }
+  serverError: { title: string; message: string }
 }
 
 export type DataFromGetFirstNameFromDB = {
@@ -16,12 +16,9 @@ export type DataFromGetFirstNameFromDB = {
 }
 
 export const getFirstNameFromDB = async (userId: string) => {
-  let data: DataFromGetFirstNameFromDB = {
-    kind: 'data-user-first-name',
-    firstName: '',
-  }
+  let firstName = ''
   if (cache.has(JSON.stringify({ data: CacheData.FIRST_NAME, userId }))) {
-    data.firstName = cache.get(JSON.stringify({ data: CacheData.FIRST_NAME, userId })) as string
+    firstName = cache.get(JSON.stringify({ data: CacheData.FIRST_NAME, userId })) as string
   } else {
     const query = await db
       .select({ name: personTable.name })
@@ -33,15 +30,15 @@ export const getFirstNameFromDB = async (userId: string) => {
       }
       return {
         kind: 'error-user-first-name',
-        server: {
+        serverError: {
           title: ErrorTitle.SERVER_GENERIC,
           message: ErrorMessage.SERVER_GENERIC,
         },
       } as ErrorFromGetFirstNameFromDB
     } else {
-      data.firstName = query[0].name
+      firstName = query[0].name
     }
-    cache.set(JSON.stringify({ data: CacheData.FIRST_NAME, userId }), data.firstName)
+    cache.set(JSON.stringify({ data: CacheData.FIRST_NAME, userId }), firstName)
   }
-  return data
+  return firstName
 }
