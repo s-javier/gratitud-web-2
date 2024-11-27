@@ -3,7 +3,7 @@ import { LoaderFunctionArgs, redirect } from '@remix-run/node'
 import { Outlet, useLoaderData, useNavigation } from '@remix-run/react'
 import { toast } from 'sonner'
 
-import { ErrorTitle, Page } from '~/enums'
+import { Page } from '~/enums'
 import { userTokenCookie } from '~/utils'
 import {
   verifyUserToken,
@@ -14,58 +14,55 @@ import {
 import { useUserStore, useLoaderOverlayStore } from '~/stores'
 import Footer from '~/components/shared/Footer'
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ context, request }: LoaderFunctionArgs) => {
+  let response
+  let middlewareResolve!: (value: unknown) => void
+  context.middleware = new Promise((resolve) => {
+    middlewareResolve = resolve
+  })
+
   const userToken = await userTokenCookie.parse(request.headers.get('Cookie'))
   const verifiedUserToken = await verifyUserToken(userToken)
   if (verifiedUserToken.serverError) {
+    middlewareResolve('error')
     return redirect(Page.LOGIN)
   }
+
   const currentUrl = new URL(request.url)
   const pathname = currentUrl.pathname
   if (pathname !== Page.ADMIN_WELCOME) {
-    const verifiedUserPermission = await verifyUserPermission(
-      verifiedUserToken.roleId || '',
-      pathname,
-    )
+    const verifiedUserPermission = await verifyUserPermission(verifiedUserToken.roleId!, pathname)
     if (verifiedUserPermission.serverError) {
+      middlewareResolve('error')
       return redirect(Page.ADMIN_WELCOME)
     }
   }
-  let menuData
-  try {
-    menuData = await getMenuFromDB(verifiedUserToken.roleId || '')
-  } catch (err) {
-    if (process.env.NODE_ENV) {
-      console.error('Error en DB. Obtención de menú del usuario.')
-      console.info(err)
-    }
+
+  response = {
+    ...verifiedUserToken,
+  }
+
+  const menuData = await getMenuFromDB(verifiedUserToken.roleId!)
+  if (menuData.serverError) {
+    middlewareResolve('error')
     return {
-      ...verifiedUserToken,
-      server: {
-        title: ErrorTitle.SERVER_GENERIC,
-        message: 'No se pudo obtener el menú del usuario.',
-      },
+      ...response,
+      ...menuData.serverError,
     }
   }
-  let firstName
-  try {
-    firstName = await getFirstNameFromDB(verifiedUserToken.userId || '')
-  } catch (err) {
-    if (process.env.NODE_ENV) {
-      console.error('Error en DB. Obtención del nombre del usuario.')
-      console.info(err)
-    }
-    return {
-      ...verifiedUserToken,
-      ...menuData,
-      kind: 'error-user-first-name',
-      server: {
-        title: ErrorTitle.SERVER_GENERIC,
-        message: 'No se pudo obtener el nombre del usuario.',
-      },
-    }
+
+  response = {
+    ...response,
+    ...menuData,
   }
-  return { ...verifiedUserToken, ...menuData, firstName }
+  middlewareResolve(verifiedUserToken)
+
+  const firstNameData = await getFirstNameFromDB(verifiedUserToken.userId!)
+  response = {
+    ...response,
+    ...firstNameData,
+  }
+  return response
 }
 
 export default function AdminLayout() {

@@ -1,6 +1,16 @@
-import { Outlet } from '@remix-run/react'
+import { useEffect } from 'react'
+import { Outlet, useNavigation } from '@remix-run/react'
+
+import { useLoaderOverlayStore } from '~/stores'
 
 export default function AuthLayout() {
+  const navigation = useNavigation()
+  const setLoaderOverlay = useLoaderOverlayStore((state) => state.setLoaderOverlay)
+
+  useEffect(() => {
+    setLoaderOverlay(navigation.state !== 'idle')
+  }, [navigation])
+
   return (
     <div className="flex h-screen items-center justify-center bg-gray-50">
       <div className="flex flex-col items-center gap-12">

@@ -18,7 +18,8 @@ export const getMenuFromDB = async (
   let menu
   if (cache.has(JSON.stringify({ data: CacheData.MENU, roleId }))) {
     menu = cache.get(JSON.stringify({ data: CacheData.MENU, roleId })) as any[]
-  } else {
+  }
+  try {
     menu = await db
       .select({
         title: menupageTable.title,
@@ -30,18 +31,29 @@ export const getMenuFromDB = async (
       .innerJoin(rolePermissionTable, eq(permissionTable.id, rolePermissionTable.permissionId))
       .where(eq(rolePermissionTable.roleId, roleId))
       .orderBy(asc(rolePermissionTable.sort))
-    cache.set(JSON.stringify({ data: CacheData.MENU, roleId }), menu)
-  }
-  if (menu.length === 0) {
+    if (menu.length === 0) {
+      if (process.env.NODE_ENV) {
+        console.error('El usuario no tiene menú.')
+      }
+      return {
+        serverError: {
+          title: ErrorTitle.SERVER_GENERIC,
+          message: 'El usuario no tiene menú.',
+        },
+      }
+    }
+  } catch (err) {
     if (process.env.NODE_ENV) {
-      console.error('El usuario no tiene menú.')
+      console.error('Error en DB. Obtención de menú del usuario.')
+      console.info(err)
     }
     return {
       serverError: {
         title: ErrorTitle.SERVER_GENERIC,
-        message: 'El usuario no tiene menú.',
+        message: 'No se pudo obtener el menú del usuario.',
       },
     }
   }
+  cache.set(JSON.stringify({ data: CacheData.MENU, roleId }), menu)
   return { menu }
 }

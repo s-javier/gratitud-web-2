@@ -1,0 +1,1 @@
+ALTER TABLE "permission" ADD CONSTRAINT "permission_path_unique" UNIQUE("path");

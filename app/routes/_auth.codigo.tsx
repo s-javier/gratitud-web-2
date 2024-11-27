@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { and, eq, ne } from 'drizzle-orm'
 
 import { ErrorMessage, ErrorTitle, Page } from '~/enums'
-import { useIsCodeSentStore, useLoaderOverlayStore } from '~/stores'
+import { useIsCodeSentStore } from '~/stores'
 import { dayjs, userTokenCookie } from '~/utils'
 import { cn } from '~/utils/cn'
 import db from '~/db'
@@ -19,7 +19,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const code = String(formData.get('code'))
   const timeLimit = Number(formData.get('timeLimit'))
   /* ▼ Validación de formulario */
-  const errCode = v.safeParse(
+  const codeErr = v.safeParse(
     v.pipe(
       v.custom(() => {
         return timeLimit > 0
@@ -31,9 +31,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     ),
     code,
   )
-  if (errCode.issues) {
+  if (codeErr.issues) {
     return {
-      errors: { code: errCode.issues[0].message },
+      errors: { code: codeErr.issues[0].message },
     }
   }
   /* ▲ Validación de formulario */
@@ -190,8 +190,7 @@ export default function AuthCodeRoute() {
   }>()
   const [timeLimit, setTimeLimit] = useState(300)
   const [code, setCode] = useState('')
-  const [errCode, setErrCode] = useState('')
-  const setLoaderOverlay = useLoaderOverlayStore((state) => state.setLoaderOverlay)
+  const [codeErrMsg, setCodeErrMsg] = useState('')
   const navigate = useNavigate()
   const isCodeSent = useIsCodeSentStore((state) => state.isCodeSent)
 
@@ -213,11 +212,6 @@ export default function AuthCodeRoute() {
   }, [])
 
   useEffect(() => {
-    console.log('navigation.state', navigation.state)
-    setLoaderOverlay(navigation.state !== 'idle')
-  }, [navigation])
-
-  useEffect(() => {
     if (navigation.state === 'idle' && formData?.errors) {
       if (formData.errors.server) {
         toast.error(formData.errors.server.title, {
@@ -226,7 +220,7 @@ export default function AuthCodeRoute() {
         })
       }
       if (formData.errors.code) {
-        setErrCode(formData.errors.code)
+        setCodeErrMsg(formData.errors.code)
         toast.error(formData.errors.code || 'Por favor corrige el código para ingresar', {
           duration: 5000,
         })

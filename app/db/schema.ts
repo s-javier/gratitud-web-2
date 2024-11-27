@@ -206,7 +206,7 @@ export const gratitudeTable = pgTable('gratitude', {
   isRemind: boolean('is_remind').default(false).notNull(),
   remindedAt: timestamp('reminded_at', { withTimezone: true }).$onUpdate(() => new Date()),
   isMaterialized: boolean('is_materialized').default(true).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .defaultNow()
     .$onUpdate(() => new Date()),

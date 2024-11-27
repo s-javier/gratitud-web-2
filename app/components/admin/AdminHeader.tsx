@@ -4,8 +4,9 @@ import { useUserStore } from '~/stores'
 import { cn } from '~/utils/cn'
 import Logo from '~/components/svg/Logo'
 import UserMenu from '~/components/admin/UserMenu'
+import { ReactNode } from 'react'
 
-export default function AdminHeader(props: { title: any; buttons: any }) {
+export default function AdminHeader(props: { title: ReactNode; buttons: ReactNode }) {
   const location = useLocation()
   const menu = useUserStore((state) => state.menu)
 
