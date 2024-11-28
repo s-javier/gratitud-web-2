@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { LoaderFunctionArgs, redirect } from '@remix-run/node'
+import { type LoaderFunctionArgs, redirect } from '@remix-run/node'
 import { Outlet, useLoaderData, useNavigation } from '@remix-run/react'
 import { toast } from 'sonner'
 

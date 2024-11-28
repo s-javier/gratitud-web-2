@@ -4,7 +4,7 @@ import { useFetcher, useNavigate } from '@remix-run/react'
 import { Button, Input } from '@nextui-org/react'
 import { toast } from 'sonner'
 
-import { Page } from '~/enums'
+import { Api, Page } from '~/enums'
 import { useIsCodeSentStore, useLoaderOverlayStore } from '~/stores'
 
 export const meta: MetaFunction = () => {
@@ -26,28 +26,33 @@ export default function AuthLoginRoute() {
 
   useEffect(() => {
     setLoaderOverlay(fetcher.state !== 'idle')
-    if (fetcher.state === 'idle' && fetcher.data?.errors) {
+    if (fetcher.state !== 'idle') {
+      return
+    }
+    if (fetcher.data?.errors) {
+      if (fetcher.data.errors.email) {
+        setEmailErrMsg(fetcher.data.errors.email)
+        toast.error('Por favor corrige el error del campo email para continuar', {
+          duration: 5000,
+        })
+        return
+      }
       if (fetcher.data.errors.server) {
         toast.error(fetcher.data.errors.server.title, {
           description: fetcher.data.errors.server.message || undefined,
           duration: 5000,
         })
+        return
       }
-      if (fetcher.data.errors.email) {
-        setEmailErrMsg(fetcher.data.errors.email)
-      }
-      toast.error('Por favor corrige el error del campo email para continuar', {
-        duration: 5000,
-      })
     }
-    if (fetcher.state === 'idle' && fetcher.data?.isCodeSent) {
+    if (fetcher.data?.isCodeSent) {
       setIsCodeSent(true)
       navigate(Page.CODE)
     }
   }, [fetcher])
 
   return (
-    <fetcher.Form method="post" action="ingresar">
+    <fetcher.Form method="post" action={Api.AUTH_SIGN_IN_EMAIL}>
       <Input
         name="email"
         type="email"

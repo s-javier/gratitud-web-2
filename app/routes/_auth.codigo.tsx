@@ -1,184 +1,12 @@
 import { useEffect, useState } from 'react'
-import { ActionFunctionArgs } from '@remix-run/node'
 import { Form, Link, useActionData, useNavigate, useNavigation } from '@remix-run/react'
 import { OTPInput, REGEXP_ONLY_DIGITS, SlotProps } from 'input-otp'
 import { Button } from '@nextui-org/react'
-import * as v from 'valibot'
 import { toast } from 'sonner'
-import { and, eq, ne } from 'drizzle-orm'
 
-import { ErrorMessage, ErrorTitle, Page } from '~/enums'
+import { Api, Page } from '~/enums'
 import { useIsCodeSentStore } from '~/stores'
-import { dayjs, userTokenCookie } from '~/utils'
 import { cn } from '~/utils/cn'
-import db from '~/db'
-import { sessionTable } from '~/db/schema'
-
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const formData = await request.formData()
-  const code = String(formData.get('code'))
-  const timeLimit = Number(formData.get('timeLimit'))
-  /* ▼ Validación de formulario */
-  const codeErr = v.safeParse(
-    v.pipe(
-      v.custom(() => {
-        return timeLimit > 0
-      }, 'Código expirado.'),
-      v.string('El valor del código es inválido.'),
-      v.trim(),
-      v.nonEmpty('Digitar el código es obligatorio'),
-      v.regex(/^[0-9]{6}$/, 'El valor del código es inválido.'),
-    ),
-    code,
-  )
-  if (codeErr.issues) {
-    return {
-      errors: { code: codeErr.issues[0].message },
-    }
-  }
-  /* ▲ Validación de formulario */
-  let session
-  try {
-    const query = await db
-      .select({
-        id: sessionTable.id,
-        personId: sessionTable.personId,
-        codeExpiresAt: sessionTable.codeExpiresAt,
-        codeIsActive: sessionTable.codeIsActive,
-      })
-      .from(sessionTable)
-      .where(eq(sessionTable.code, code))
-    if (query.length === 0) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Sesión no encontrada.')
-      }
-      return {
-        errors: {
-          server: {
-            title: ErrorTitle.SERVER_GENERIC,
-            message: ErrorMessage.SERVER_GENERIC,
-          },
-        },
-      }
-    }
-    session = query[0]
-  } catch (err) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error en DB. Obtener sesión.')
-      console.info(err)
-    }
-    return {
-      errors: {
-        server: {
-          title: ErrorTitle.SERVER_GENERIC,
-          message: ErrorMessage.SERVER_GENERIC,
-        },
-      },
-    }
-  }
-  if (session.codeIsActive === false) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Sesión ya utilizada.')
-    }
-    return {
-      errors: {
-        server: {
-          title: ErrorTitle.SERVER_GENERIC,
-          message: ErrorMessage.SERVER_GENERIC,
-        },
-      },
-    }
-  }
-  if (dayjs.utc().isAfter(session.codeExpiresAt)) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Sesión expirada.')
-    }
-    return {
-      errors: {
-        server: {
-          title: ErrorTitle.SERVER_GENERIC,
-          message: ErrorMessage.SERVER_GENERIC,
-        },
-      },
-    }
-  }
-  /* ↓ Desactivar código y activar sesión */
-  try {
-    await db
-      .update(sessionTable)
-      .set({ isActive: true, codeIsActive: false })
-      .where(eq(sessionTable.id, session.id))
-  } catch (err) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error en DB. Desactivar código y activar sesión.')
-      console.info(err)
-    }
-    return {
-      errors: {
-        server: {
-          title: ErrorTitle.SERVER_GENERIC,
-          message: ErrorMessage.SERVER_GENERIC,
-        },
-      },
-    }
-  }
-  /* ▼ Desactivar las sesiones activas del usuario que excedan las MAX_ACTIVE_SESSIONS más nuevas */
-  let sessions
-  try {
-    sessions = await db
-      .select({ id: sessionTable.id })
-      .from(sessionTable)
-      .where(
-        and(
-          and(ne(sessionTable.id, session.id), eq(sessionTable.isActive, true)),
-          eq(sessionTable.personId, session.personId),
-        ),
-      )
-  } catch (err) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error en DB. Consulta de sesiones a desactivar.')
-      console.info(err)
-    }
-    return {
-      errors: {
-        server: {
-          title: ErrorTitle.SERVER_GENERIC,
-          message: ErrorMessage.SERVER_GENERIC,
-        },
-      },
-    }
-  }
-  if (sessions.length > parseInt(process.env.MAX_ACTIVE_SESSIONS ?? '1')) {
-    try {
-      await db
-        .update(sessionTable)
-        .set({ isActive: false })
-        .where(eq(sessionTable.id, sessions[parseInt(process.env.MAX_ACTIVE_SESSIONS ?? '1')].id))
-    } catch (err) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Error en DB. Desactivar la sesión activa número MAX_ACTIVE_SESSIONS + 1.')
-        console.info(err)
-      }
-      return {
-        errors: {
-          server: {
-            title: ErrorTitle.SERVER_GENERIC,
-            message: ErrorMessage.SERVER_GENERIC,
-          },
-        },
-      }
-    }
-  }
-  /* ▲ Desactivar las sesiones activas del usuario que excedan las MAX_ACTIVE_SESSIONS más nuevas */
-  const cookieValue = await userTokenCookie.serialize(session.id)
-  return new Response(null, {
-    status: 302 /* Redirección */,
-    headers: {
-      'Set-Cookie': cookieValue /* Configurar la cookie */,
-      Location: Page.ADMIN_WELCOME /* URL de redirección */,
-    },
-  })
-}
 
 export default function AuthCodeRoute() {
   const navigation = useNavigation()
@@ -239,7 +67,7 @@ export default function AuthCodeRoute() {
         <p className="mb-8">
           Si el email no lo ves en tu bandeja de entrada, por favor, revisa tu carpeta de spam.
         </p>
-        <Form method="post" className="mb-8">
+        <Form method="post" action={Api.AUTH_SIGN_IN_CODE} className="mb-8">
           <input name="code" type="hidden" value={code} />
           <input name="timeLimit" type="hidden" value={timeLimit} />
           <div className="flex justify-center mb-8">

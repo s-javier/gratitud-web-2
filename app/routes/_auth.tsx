@@ -1,7 +1,20 @@
 import { useEffect } from 'react'
+import { redirect, type LoaderFunctionArgs } from '@remix-run/node'
 import { Outlet, useNavigation } from '@remix-run/react'
 
+import { Page } from '~/enums'
 import { useLoaderOverlayStore } from '~/stores'
+import { userTokenCookie } from '~/utils'
+import { verifyUserToken } from '~/db/queries'
+
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const userToken = await userTokenCookie.parse(request.headers.get('Cookie'))
+  const verifiedUserToken = await verifyUserToken(userToken)
+  if (!verifiedUserToken.serverError) {
+    return redirect(Page.ADMIN_WELCOME)
+  }
+  return null
+}
 
 export default function AuthLayout() {
   const navigation = useNavigation()

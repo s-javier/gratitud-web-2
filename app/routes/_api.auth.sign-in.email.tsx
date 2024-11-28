@@ -10,7 +10,14 @@ import db from '~/db'
 import { personTable, sessionTable } from '~/db/schema'
 import { dayjs } from '~/utils'
 
+export const loader = () => {
+  return new Response('Not Found', { status: 404 })
+}
+
 export const action = async ({ request }: ActionFunctionArgs) => {
+  if (request.method !== 'POST') {
+    return new Response('Not Found', { status: 404 })
+  }
   const formData = await request.formData()
   const email = String(formData.get('email'))
   /* ▼ Validación de formulario */
@@ -151,6 +158,5 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     }
   }
-  // return redirect(Page.CODE)
   return { isCodeSent: true }
 }

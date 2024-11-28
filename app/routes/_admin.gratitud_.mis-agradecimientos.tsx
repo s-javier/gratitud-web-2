@@ -18,7 +18,7 @@ export const loader = async ({ context }: LoaderFunctionArgs) => {
     return {}
   }
   const myGratitudes = await getMyGratitudesFromDB(userInfo.userId)
-  return myGratitudes
+  return { userInfo, ...myGratitudes }
 }
 
 export const meta: MetaFunction = () => {
@@ -28,6 +28,7 @@ export const meta: MetaFunction = () => {
 export default function AdminMyGratitudesRoute() {
   const loader = useLoaderData<{
     serverError?: { title: string; message: string }
+    userInfo?: UserInfo
     myGratitudes?: {
       id: string
       title: string | null
@@ -49,7 +50,9 @@ export default function AdminMyGratitudesRoute() {
         description: loader.serverError.message || undefined,
         duration: 5000,
       })
+      return
     }
+    setFilteredItems(loader.myGratitudes || [])
   }, [loader])
 
   useEffect(() => {
@@ -70,7 +73,7 @@ export default function AdminMyGratitudesRoute() {
             Mis agradecimientos
           </h1>
         }
-        buttons={<Add />}
+        buttons={<Add userId={loader.userInfo?.userId || ''} />}
       />
       <AdminMain>
         <div className="max-w-[600px] m-auto">

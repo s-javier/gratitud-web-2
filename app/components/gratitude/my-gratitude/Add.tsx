@@ -1,25 +1,31 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Button, Input } from '@nextui-org/react'
+import { useFetcher } from '@remix-run/react'
+import { Button, Input, Textarea } from '@nextui-org/react'
+import { toast } from 'sonner'
 
+import { Api, ErrorTitle } from '~/enums'
+import { useLoaderOverlayStore } from '~/stores'
 import { cn } from '~/utils/cn'
+import { gratitudeCreateValidation } from '~/utils/validations'
 import Overlay from '~/components/shared/Overlay'
 import Dialog from '~/components/shared/Dialog'
-import { useFetcher } from '@remix-run/react'
 
-export default function Add(props: any) {
+export default function MyGratitudeAdd(props: { userId: string }) {
+  const setLoaderOverlay = useLoaderOverlayStore((state) => state.setLoaderOverlay)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  // const [title, setTitle] = useState('')
+  const [title, setTitle] = useState('')
   const [titleErrMsg, setTitleErrMsg] = useState('')
   const [description, setDescription] = useState('')
   const [descriptionErrMsg, setDescriptionErrMsg] = useState('')
   const [isClient, setIsClient] = useState(false)
   const fetcher = useFetcher<{
-    // isCodeSent?: boolean
-    // errors?: {
-    //   email?: string
-    //   server?: { title: string; message: string }
-    // }
+    isGratitudeCreated?: boolean
+    errors?: {
+      title?: string
+      description?: string
+      server?: { title: string; message: string }
+    }
   }>()
   const formRef = useRef(null)
 
@@ -28,7 +34,31 @@ export default function Add(props: any) {
   }, [])
 
   useEffect(() => {
-    // Cerrar modal
+    setLoaderOverlay(fetcher.state !== 'idle')
+    if (fetcher.state !== 'idle') {
+      return
+    }
+    if (fetcher.data?.errors) {
+      if (fetcher.data.errors.server === undefined) {
+        setTitleErrMsg(fetcher.data.errors.title || '')
+        setDescriptionErrMsg(fetcher.data.errors.description || '')
+        toast.error(ErrorTitle.FORM_GENERIC, {
+          description: 'Por favor corrige el formulario para agregar un agradecimiento.',
+          duration: 5000,
+        })
+        return
+      }
+      if (fetcher.data.errors.server) {
+        toast.error(fetcher.data.errors.server.title, {
+          description: fetcher.data.errors.server.message || undefined,
+          duration: 5000,
+        })
+        return
+      }
+    }
+    if (fetcher.data?.isGratitudeCreated) {
+      setIsDialogOpen(false)
+    }
   }, [fetcher])
 
   return (
@@ -72,22 +102,21 @@ export default function Add(props: any) {
                       'bg-[var(--o-btn-primary-bg-color)]',
                       'uppercase',
                     )}
-                    onClick={async () => {
-                      fetcher.submit(formRef.current)
-                      // if (validateRequest() === false) {
-                      //   return
-                      // }
-                      // $loaderOverlay.set(true)
-                      // const { data, error }: any = await actions.gratitudeCreate({
-                      //   title: title().trim() || undefined,
-                      //   description: description().trim(),
-                      //   isMaterialized: true,
-                      // })
-                      // if (validateResponse(error || data?.error || null) === false) {
-                      //   $loaderOverlay.set(false)
-                      //   return
-                      // }
-                      // handleResponse()
+                    onClick={() => {
+                      const validationErrors = gratitudeCreateValidation({
+                        title: title || undefined,
+                        description,
+                      })
+                      if (Object.keys(validationErrors.errors).length > 0) {
+                        setTitleErrMsg(validationErrors.errors.title || '')
+                        setDescriptionErrMsg(validationErrors.errors.description || '')
+                        return
+                      }
+                      const formData = new FormData(formRef.current || undefined)
+                      formData.append('userId', props.userId)
+                      formData.append('isMaterialized', 'true')
+                      fetcher.submit(formData, { method: 'post', action: Api.GRATITUDE_CREATE })
+                      // fetcher.submit(formRef.current)
                     }}
                   >
                     Agregar
@@ -99,12 +128,17 @@ export default function Add(props: any) {
                 <p className="">A continuación puedese agregar un agradecimiento.</p>
                 <p className="text-sm text-gray-400">(*) Campos obligatorios.</p>
               </div>
-              <fetcher.Form method="post" className="space-y-4" ref={formRef} action="agregar">
+              <fetcher.Form
+                method="post"
+                className="space-y-4"
+                ref={formRef}
+                action={Api.GRATITUDE_CREATE}
+              >
                 <Input
                   name="title"
                   type="text"
                   label="Título"
-                  className="mb-8"
+                  className=""
                   classNames={{
                     inputWrapper: [
                       'border-gray-400 border-[1px]',
@@ -114,9 +148,31 @@ export default function Add(props: any) {
                   }}
                   size="lg"
                   variant="bordered"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
                   isInvalid={titleErrMsg ? true : false}
                   errorMessage={titleErrMsg}
                   onFocus={() => setTitleErrMsg('')}
+                />
+                <Textarea
+                  name="description"
+                  type="text"
+                  label="Descripción*"
+                  className=""
+                  classNames={{
+                    inputWrapper: [
+                      'border-gray-400 border-[1px]',
+                      'hover:!border-[var(--o-input-border-hover-color)]',
+                      'group-data-[focus=true]:border-[var(--o-input-border-hover-color)]',
+                    ],
+                  }}
+                  size="lg"
+                  variant="bordered"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  isInvalid={descriptionErrMsg ? true : false}
+                  errorMessage={descriptionErrMsg}
+                  onFocus={() => setDescriptionErrMsg('')}
                 />
               </fetcher.Form>
               {/* 

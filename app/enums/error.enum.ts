@@ -1,4 +1,5 @@
 export const ErrorTitle = {
+  FORM_GENERIC: 'Error en el formulario',
   SERVER_GENERIC: 'Hubo un error',
 }
 
