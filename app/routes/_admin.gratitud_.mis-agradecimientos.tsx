@@ -11,6 +11,8 @@ import AdminMain from '~/components/admin/AdminMain'
 import Thank from '~/components/gratitude/Thank'
 import TableActions from '~/components/shared/TableActions'
 import Add from '~/components/gratitude/my-gratitude/Add'
+import Info from '~/components/gratitude/my-gratitude/Info'
+import AddEdit from '~/components/gratitude/my-gratitude/AddEdit'
 
 export const loader = async ({ context }: LoaderFunctionArgs) => {
   const userInfo = (await context.middleware) as UserInfo | 'error'
@@ -67,6 +69,14 @@ export default function AdminMyGratitudesRoute() {
 
   return (
     <>
+      <Info isShow={isInfoOpen} close={() => setIsInfoOpen(false)} data={gratitude} />
+      <AddEdit
+        type="edit"
+        isShow={isEditOpen}
+        close={() => setIsEditOpen(false)}
+        data={gratitude}
+        userId={loader.userInfo?.userId || ''}
+      />
       <AdminHeader
         title={
           <h1 className="max-w-[800px] text-3xl font-bold tracking-tight text-white">
